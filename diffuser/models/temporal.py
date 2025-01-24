@@ -31,8 +31,7 @@ class ResidualTemporalBlock(nn.Module):
             Rearrange('batch t -> batch t 1'),
         )
 
-        self.residual_conv = nn.Conv1d(inp_channels, out_channels, 1) \
-            if inp_channels != out_channels else nn.Identity()
+        self.residual_conv = nn.Conv1d(inp_channels, out_channels, 1) if inp_channels != out_channels else nn.Identity()
 
     def forward(self, x, t):
         '''
@@ -59,8 +58,8 @@ class TemporalUnet(nn.Module):
     ):
         super().__init__()
 
-        dims = [transition_dim, *map(lambda m: dim * m, dim_mults)]
-        in_out = list(zip(dims[:-1], dims[1:]))
+        dims = [transition_dim, *map(lambda m: dim * m, dim_mults)] # [23,32,64,128,256]
+        in_out = list(zip(dims[:-1], dims[1:])) # ((23 , 32) , (32 , 64) , (64 , 128) , (128 , 256))
         print(f'[ models/temporal ] Channel dimensions: {in_out}')
 
         time_dim = dim
@@ -68,7 +67,7 @@ class TemporalUnet(nn.Module):
             SinusoidalPosEmb(dim),
             nn.Linear(dim, dim * 4),
             nn.Mish(),
-            nn.Linear(dim * 4, dim),
+            nn.Linear(dim * 4, dim)
         )
 
         self.downs = nn.ModuleList([])
@@ -91,7 +90,7 @@ class TemporalUnet(nn.Module):
 
         mid_dim = dims[-1]
         self.mid_block1 = ResidualTemporalBlock(mid_dim, mid_dim, embed_dim=time_dim, horizon=horizon)
-        self.mid_attn = Residual(PreNorm(mid_dim, LinearAttention(mid_dim))) if attention else nn.Identity()
+        self.mid_attn   = Residual(PreNorm(mid_dim, LinearAttention(mid_dim))) if attention else nn.Identity()
         self.mid_block2 = ResidualTemporalBlock(mid_dim, mid_dim, embed_dim=time_dim, horizon=horizon)
 
         for ind, (dim_in, dim_out) in enumerate(reversed(in_out[1:])):

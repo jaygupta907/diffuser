@@ -114,6 +114,7 @@ class GaussianDiffusion(nn.Module):
         discounts = discount ** torch.arange(self.horizon, dtype=torch.float)
         discounts = discounts / discounts.mean()
         loss_weights = torch.einsum('h,t->ht', discounts, dim_weights)
+        print(loss_weights.shape)
 
         ## manually set a0 weight
         loss_weights[0, :self.action_dim] = action_weight
@@ -121,6 +122,7 @@ class GaussianDiffusion(nn.Module):
 
     #------------------------------------------ sampling ------------------------------------------#
 
+    #predict x_0 from x_t and e_t
     def predict_start_from_noise(self, x_t, t, noise):
         '''
             if self.predict_epsilon, model output is (scaled) noise;
@@ -134,6 +136,7 @@ class GaussianDiffusion(nn.Module):
         else:
             return noise
 
+    #Calculate the distribution q(x_t-1| x_t,x_0)
     def q_posterior(self, x_start, x_t, t):
         posterior_mean = (
             extract(self.posterior_mean_coef1, t, x_t.shape) * x_start +
@@ -142,9 +145,11 @@ class GaussianDiffusion(nn.Module):
         posterior_variance = extract(self.posterior_variance, t, x_t.shape)
         posterior_log_variance_clipped = extract(self.posterior_log_variance_clipped, t, x_t.shape)
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
+    
+
 
     def p_mean_variance(self, x, cond, t):
-        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t))
+        x_recon = self.predict_start_from_noise(x, t=t, noise=self.model(x, cond, t)) # Reconstructed x_0
 
         if self.clip_denoised:
             x_recon.clamp_(-1., 1.)

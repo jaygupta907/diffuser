@@ -107,7 +107,7 @@ class LinearAttention(nn.Module):
 
     def forward(self, x):
         qkv = self.to_qkv(x).chunk(3, dim = 1)
-        q, k, v = map(lambda t: einops.rearrange(t, 'b (h c) d -> b h c d', h=self.heads), qkv)
+        q, k, v = map(lambda t: einops.rearrange(t, 'b (h c) d -> b h c d', h=self.heads), qkv) # b:batch size , h: num_heads , c: channel , d:embedding dimension
         q = q * self.scale
 
         k = k.softmax(dim = -1)
@@ -121,7 +121,7 @@ class LinearAttention(nn.Module):
 #---------------------------------- sampling ---------------------------------#
 #-----------------------------------------------------------------------------#
 
-def extract(a, t, x_shape):
+def extract(a, t, x_shape): # x_shape = [64,4,23] , a.shape = [20],out.shape = [64]
     b, *_ = t.shape
     out = a.gather(-1, t)
     return out.reshape(b, *((1,) * (len(x_shape) - 1)))
@@ -139,7 +139,9 @@ def cosine_beta_schedule(timesteps, s=0.008, dtype=torch.float32):
     betas_clipped = np.clip(betas, a_min=0, a_max=0.999)
     return torch.tensor(betas_clipped, dtype=dtype)
 
-def apply_conditioning(x, conditions, action_dim):
+
+#Sets state at timestep t to a predefined state
+def apply_conditioning(x, conditions, action_dim):# x.shape = [64,4,23]    horizon:4    batch:64     action+state:23
     for t, val in conditions.items():
         x[:, t, action_dim:] = val.clone()
     return x

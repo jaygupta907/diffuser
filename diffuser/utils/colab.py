@@ -30,12 +30,11 @@ def run_diffusion(model, dataset, obs, n_samples=1, device='cuda:0', **diffusion
     0: to_torch(obs, device=device)
   }
 
-  samples, diffusion = model.conditional_sample(conditions,
-        return_diffusion=True, verbose=False, **diffusion_kwargs)
+  diffusion = model.conditional_sample(conditions,return_chain=True,verbose=False, **diffusion_kwargs)
 
   ## [ n_samples x (n_diffusion_steps + 1) x horizon x (action_dim + observation_dim)]
-  diffusion = to_np(diffusion)
-
+  diffusion = to_np(diffusion.chains)
+ 
   ## extract observations
   ## [ n_samples x (n_diffusion_steps + 1) x horizon x observation_dim ]
   normed_observations = diffusion[:, :, :, dataset.action_dim:]
@@ -50,7 +49,7 @@ def run_diffusion(model, dataset, obs, n_samples=1, device='cuda:0', **diffusion
   return observations
 
 
-def show_diffusion(renderer, observations, n_repeat=100, substep=1, filename='diffusion.mp4', savebase='/content/videos'):
+def show_diffusion(renderer, observations, n_repeat=100, substep=1, filename='diffusion.mp4', savebase='/home/ae21b026/diffuser/content/videos'):
     '''
         observations : [ n_diffusion_steps x batch_size x horizon x observation_dim ]
     '''
@@ -77,7 +76,7 @@ def show_diffusion(renderer, observations, n_repeat=100, substep=1, filename='di
     show_video(savepath)
 
 
-def show_sample(renderer, observations, filename='sample.mp4', savebase='/content/videos'):
+def show_sample(renderer, observations, filename='sample.mp4', savebase='/home/ae21b026/diffuser/content/videos'):
     '''
         observations : [ batch_size x horizon x observation_dim ]
     '''

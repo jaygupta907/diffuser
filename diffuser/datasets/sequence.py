@@ -4,7 +4,7 @@ import torch
 import pdb
 
 from .preprocessing import get_preprocess_fn
-from .d4rl import load_environment, sequence_dataset
+from .dsrl import load_environment, sequence_dataset
 from .normalization import DatasetNormalizer
 from .buffer import ReplayBuffer
 

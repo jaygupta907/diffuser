@@ -1,8 +1,9 @@
 import os
 import collections
 import numpy as np
-import gym
+import gymnasium as gym
 import pdb
+
 
 from contextlib import (
     contextmanager,
@@ -21,8 +22,8 @@ def suppress_output():
             yield (err, out)
 
 with suppress_output():
-    ## d4rl prints out a variety of warnings
-    import d4rl
+    ## dsrl prints out a variety of warnings
+    import dsrl
 
 #-----------------------------------------------------------------------------#
 #-------------------------------- general api --------------------------------#
@@ -41,15 +42,6 @@ def load_environment(name):
 
 def get_dataset(env):
     dataset = env.get_dataset()
-
-    if 'antmaze' in str(env).lower():
-        ## the antmaze-v0 environments have a variety of bugs
-        ## involving trajectory segmentation, so manually reset
-        ## the terminal and timeout fields
-        dataset = antmaze_fix_timeouts(dataset)
-        dataset = antmaze_scale_rewards(dataset)
-        get_max_delta(dataset)
-
     return dataset
 
 def sequence_dataset(env, preprocess_fn):

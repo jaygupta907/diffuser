@@ -20,7 +20,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         max_n_episodes=10000, termination_penalty=0, use_padding=True, seed=None):
         self.preprocess_fn = get_preprocess_fn(preprocess_fns, env)
         self.env = env = load_environment(env)
-        self.env.seed(seed)
+        self.env.set_seed(seed)
         self.horizon = horizon
         self.max_path_length = max_path_length
         self.use_padding = use_padding

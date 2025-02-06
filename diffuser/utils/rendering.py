@@ -4,7 +4,7 @@ import einops
 import imageio
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-import gym
+import gymnasium as gym
 import mujoco_py as mjc
 import warnings
 import pdb
@@ -12,7 +12,7 @@ import pdb
 from .arrays import to_np
 from .video import save_video, save_videos
 
-from diffuser.datasets.d4rl import load_environment
+from diffuser.datasets.dsrl import load_environment
 
 #-----------------------------------------------------------------------------#
 #------------------------------- helper structs ------------------------------#

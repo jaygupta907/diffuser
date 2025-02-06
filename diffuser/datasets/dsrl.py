@@ -24,6 +24,7 @@ def suppress_output():
 with suppress_output():
     ## dsrl prints out a variety of warnings
     import dsrl
+    import dsrl.offline_safety_gymnasium
 
 #-----------------------------------------------------------------------------#
 #-------------------------------- general api --------------------------------#
@@ -34,10 +35,8 @@ def load_environment(name):
         ## name is already an environment
         return name
     with suppress_output():
-        wrapped_env = gym.make(name)
-    env = wrapped_env.unwrapped
-    env.max_episode_steps = wrapped_env._max_episode_steps
-    env.name = name
+        env = gym.make(name)
+        print(type(env))
     return env
 
 def get_dataset(env):

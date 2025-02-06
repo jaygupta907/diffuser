@@ -1,10 +1,10 @@
-import gym
+import gymnasium as gym
 import numpy as np
 import einops
 from scipy.spatial.transform import Rotation as R
 import pdb
 
-from .d4rl import load_environment
+from .dsrl import load_environment
 
 #-----------------------------------------------------------------------------#
 #-------------------------------- general api --------------------------------#

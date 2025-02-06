@@ -60,6 +60,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             each index maps to a datapoint
         '''
         indices = []
+        print(f'Path length is {path_lengths}')
         for i, path_length in enumerate(path_lengths):
             max_start = min(path_length - 1, self.max_path_length - horizon)
             if not self.use_padding:
@@ -68,6 +69,7 @@ class SequenceDataset(torch.utils.data.Dataset):
                 end = start + horizon
                 indices.append((i, start, end))
         indices = np.array(indices)
+        print(f'Indices shape is : {indices.shape}')
         return indices
 
     def get_conditions(self, observations):

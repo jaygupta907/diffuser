@@ -2,7 +2,7 @@ import pdb
 
 import diffuser.sampling as sampling
 import diffuser.utils as utils
-
+import numpy as np
 
 #-----------------------------------------------------------------------------#
 #----------------------------------- setup -----------------------------------#
@@ -74,7 +74,8 @@ policy = policy_config()
 #-----------------------------------------------------------------------------#
 
 env = dataset.env
-observation = env.reset()
+observation ,info = env.reset()
+env.set_target_cost(0)
 
 ## observations for rendering
 rollout = [observation.copy()]
@@ -93,13 +94,13 @@ for t in range(args.max_episode_length):
     action, samples = policy(conditions, batch_size=args.batch_size, verbose=args.verbose)
 
     ## execute action in environment
-    next_observation, reward, terminal, _ = env.step(action)
+    next_observation, reward, cost,terminal, timeout ,info = env.step(action)
 
     ## print reward and score
     total_reward += reward
-    score = env.get_normalized_score(total_reward)
+    normalized_reward , normalized_cost = env.get_normalized_score(total_reward,cost=cost)
     print(
-        f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | score: {score:.4f} | '
+        f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | normalized_reward: {normalized_reward:.4f} | normalized_cost: {normalized_cost:.4f} |'
         f'values: {samples.values} | scale: {args.scale}',
         flush=True,
     )
@@ -116,4 +117,4 @@ for t in range(args.max_episode_length):
     observation = next_observation
 
 ## write results to json file at `args.savepath`
-logger.finish(t, score, total_reward, terminal, diffusion_experiment, value_experiment)
+logger.finish(t,normalized_reward, normalized_cost, total_reward, terminal, diffusion_experiment, value_experiment)

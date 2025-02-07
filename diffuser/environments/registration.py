@@ -19,6 +19,8 @@ ENVIRONMENT_SPECS = (
     },
 )
 
+
+
 def register_environments():
     try:
         for environment in ENVIRONMENT_SPECS:

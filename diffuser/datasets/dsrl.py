@@ -30,13 +30,18 @@ with suppress_output():
 #-------------------------------- general api --------------------------------#
 #-----------------------------------------------------------------------------#
 
+
+
 def load_environment(name):
     if type(name) != str:
         ## name is already an environment
         return name
     with suppress_output():
-        env = gym.make(name)
-        print(type(env))
+        wrapped_env = gym.make(name)
+    env = wrapped_env.unwrapped
+    env.max_episode_steps = wrapped_env._max_episode_steps
+    env.name = name
+    print(type(env))
     return env
 
 def get_dataset(env):

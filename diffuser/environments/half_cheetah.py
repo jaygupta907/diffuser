@@ -3,6 +3,7 @@ import numpy as np
 from gymnasium import utils
 from gymnasium.envs.mujoco import mujoco_env
 
+
 class HalfCheetahFullObsEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         asset_path = os.path.join(

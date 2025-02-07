@@ -5,7 +5,7 @@ import imageio
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import gymnasium as gym
-import mujoco_py as mjc
+import mujoco 
 import warnings
 import pdb
 
@@ -59,14 +59,16 @@ class MuJoCoRenderer:
         if type(env) is str:
             env = env_map(env)
             self.env = gym.make(env)
+            self.env = self.env.unwrapped
         else:
             self.env = env
         ## - 1 because the envs in renderer are fully-observed
         self.observation_dim = np.prod(self.env.observation_space.shape) - 1
         self.action_dim = np.prod(self.env.action_space.shape)
         try:
-            self.viewer = mjc.MjRenderContextOffscreen(self.env.sim)
-        except:
+            self.viewer = mujoco.Renderer(self.env.model,1024,1024)
+        except Exception as e:
+            print(e)
             print('[ utils/rendering ] Warning: could not initialize offscreen renderer')
             self.viewer = None
 
@@ -78,7 +80,7 @@ class MuJoCoRenderer:
         return state
 
     def pad_observations(self, observations):
-        qpos_dim = self.env.sim.data.qpos.size
+        qpos_dim = self.env.data.qpos.size
         ## xpos is hidden
         xvel_dim = qpos_dim - 1
         xvel = observations[:, xvel_dim]
@@ -90,10 +92,8 @@ class MuJoCoRenderer:
         return states
 
     def render(self, observation, dim=256, partial=False, qvel=True, render_kwargs=None, conditions=None):
-
         if type(dim) == int:
             dim = (dim, dim)
-
         if self.viewer is None:
             return np.zeros((*dim, 3), np.uint8)
 
@@ -106,27 +106,27 @@ class MuJoCoRenderer:
                 'elevation': -20
             }
 
-        for key, val in render_kwargs.items():
-            if key == 'lookat':
-                self.viewer.cam.lookat[:] = val[:]
-            else:
-                setattr(self.viewer.cam, key, val)
+        cam = mujoco.MjvCamera()
+
+        # Set camera properties
+        cam.lookat[:]   = render_kwargs['lookat'] 
+        cam.distance    = render_kwargs['distance'] 
+        cam.elevation   = render_kwargs['elevation'] 
+        cam.trackbodyid = render_kwargs['trackbodyid'] 
 
         if partial:
             state = self.pad_observation(observation)
         else:
             state = observation
 
-        qpos_dim = self.env.sim.data.qpos.size
+        qpos_dim = self.env.data.qpos.size
         if not qvel or state.shape[-1] == qpos_dim:
-            qvel_dim = self.env.sim.data.qvel.size
+            qvel_dim = self.env.data.qvel.size
             state = np.concatenate([state, np.zeros(qvel_dim)])
 
         set_state(self.env, state)
-
-        self.viewer.render(*dim)
-        data = self.viewer.read_pixels(*dim, depth=False)
-        data = data[::-1, :, :]
+        self.viewer.update_scene(self.env.data,cam)
+        data = self.viewer.render()
         return data
 
     def _renders(self, observations, **kwargs):
@@ -241,8 +241,8 @@ class MuJoCoRenderer:
 #-----------------------------------------------------------------------------#
 
 def set_state(env, state):
-    qpos_dim = env.sim.data.qpos.size
-    qvel_dim = env.sim.data.qvel.size
+    qpos_dim = env.data.qpos.size
+    qvel_dim = env.data.qvel.size
     if not state.size == qpos_dim + qvel_dim:
         warnings.warn(
             f'[ utils/rendering ] Expected state of size {qpos_dim + qvel_dim}, '
@@ -259,7 +259,7 @@ def rollouts_from_state(env, state, actions_l):
     return rollouts
 
 def rollout_from_state(env, state, actions):
-    qpos_dim = env.sim.data.qpos.size
+    qpos_dim = env.data.qpos.size
     env.set_state(state[:qpos_dim], state[qpos_dim:])
     observations = [env._get_obs()]
     for act in actions:

@@ -75,7 +75,7 @@ policy = policy_config()
 
 env = dataset.env
 observation ,info = env.reset()
-env.set_target_cost(0)
+env.set_target_cost(5.0)
 
 ## observations for rendering
 rollout = [observation.copy()]

@@ -36,9 +36,9 @@ class Logger:
                 fps=80,
             )
 
-    def finish(self,normalized_reward, normalized_cost, t, score, total_reward, terminal, diffusion_experiment, value_experiment):
+    def finish(self,t,normalized_reward, normalized_cost, total_reward, terminal, diffusion_experiment, value_experiment):
         json_path = os.path.join(self.savepath, 'rollout.json')
-        json_data = {'score': score, 'step': t, 'return': total_reward, 'term': terminal,
+        json_data = {'step': t, 'return': total_reward, 'term': terminal,
             'epoch_diffusion': diffusion_experiment.epoch, 'epoch_value': value_experiment.epoch,'normalized_reward':normalized_reward,'normalized_cost':normalized_cost}
         json.dump(json_data, open(json_path, 'w'), indent=2, sort_keys=True)
         print(f'[ utils/logger ] Saved log to {json_path}')

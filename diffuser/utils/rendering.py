@@ -193,7 +193,7 @@ class MuJoCoRenderer:
         ])
 
         images_real = np.stack([
-            self._renders(obs_real, partial=False)
+            self._renders(obs_real, partial=True)
             for obs_real in observations_real
         ])
 
@@ -263,9 +263,9 @@ def rollout_from_state(env, state, actions):
     env.set_state(state[:qpos_dim], state[qpos_dim:])
     observations = [env._get_obs()]
     for act in actions:
-        obs, rew, term, _ = env.step(act)
+        obs, reward, cost,terminal, timeout ,info = env.step(act)
         observations.append(obs)
-        if term:
+        if terminal or timeout:
             break
     for i in range(len(observations), len(actions)+1):
         ## if terminated early, pad with zeros

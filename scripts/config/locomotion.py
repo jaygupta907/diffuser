@@ -106,6 +106,49 @@ base = {
         'seed': None,
     },
 
+    'costs': {
+        'model': 'models.CostFunction',
+        'diffusion': 'models.CostDiffusion',
+        'horizon': 32,
+        'n_diffusion_steps': 20,
+        'dim_mults': (1, 2, 4, 8),
+        'renderer': 'utils.MuJoCoRenderer',
+
+        ## value-specific kwargs
+        'discount': 0.99,
+        'termination_penalty': -100,
+        'normed': False,
+
+        ## dataset
+        'loader': 'datasets.CostDataset',
+        'normalizer': 'GaussianNormalizer',
+        'preprocess_fns': [],
+        'use_padding': True,
+        'max_path_length': 1000,
+
+        ## serialization
+        'logbase': logbase,
+        'prefix': 'values/defaults',
+        'exp_name': watch(args_to_watch),
+
+        ## training
+        'n_steps_per_epoch': 10000,
+        'loss_type': 'value_l2',
+        'n_train_steps': 200e3,
+        'batch_size': 32,
+        'learning_rate': 2e-4,
+        'gradient_accumulate_every': 2,
+        'ema_decay': 0.995,
+        'save_freq': 1000,
+        'sample_freq': 0,
+        'n_saves': 5,
+        'save_parallel': False,
+        'n_reference': 8,
+        'bucket': None,
+        'device': 'cuda',
+        'seed': None,
+    },
+    
     'plan': {
         'guide': 'sampling.ValueGuide',
         'policy': 'sampling.GuidedPolicy',

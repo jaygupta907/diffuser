@@ -4,14 +4,14 @@ import torch
 import pdb
 
 from .preprocessing import get_preprocess_fn
-from .dsrl import load_environment, sequence_dataset
+from .dsrl import load_environment, sequence_dataset,sequence_dataset_labelled,sequence_dataset_unlabelled
 from .normalization import DatasetNormalizer
 from .buffer import ReplayBuffer
 
 
 Batch      =  namedtuple('Batch', 'trajectories conditions')
 ValueBatch =  namedtuple('ValueBatch', 'trajectories conditions values')
-CostBatch  =  namedtuple('CostBatch','trajectories conditions cost')
+CostBatch  =  namedtuple('CostBatch','trajectories conditions trajectory conditions')
 
 
 class SequenceDataset(torch.utils.data.Dataset):
@@ -92,6 +92,116 @@ class SequenceDataset(torch.utils.data.Dataset):
         trajectories = np.concatenate([actions, observations], axis=-1)
         batch = Batch(trajectories, conditions)
         return batch
+    
+
+
+
+class CostDataset(torch.utils.data.Dataset):
+
+    def __init__(self, env='hopper-medium-replay', horizon=64,
+        normalizer='LimitsNormalizer', preprocess_fns=[], max_path_length=1000,
+        max_n_episodes=10000, termination_penalty=0, use_padding=True, seed=None):
+        self.preprocess_fn   = get_preprocess_fn(preprocess_fns, env)
+        self.env             = env = load_environment(env)
+        self.horizon         = horizon
+        self.max_path_length = max_path_length
+        self.use_padding     = use_padding
+        itr_labelled         = sequence_dataset_labelled(env, self.preprocess_fn)
+        itr_unlabelled       = sequence_dataset_unlabelled(env, self.preprocess_fn)
+
+        fields_lablled    = ReplayBuffer(max_n_episodes, max_path_length, termination_penalty)
+        fields_unlabelled = ReplayBuffer(max_n_episodes, max_path_length, termination_penalty)
+        for _, episode in enumerate(itr_labelled):
+            fields_lablled.add_path(episode)
+        for _, episode in enumerate(itr_unlabelled):
+            fields_unlabelled.add_path(episode)
+        fields_lablled.finalize()
+        fields_unlabelled.finalize()
+
+        self.normalizer_labelled     = DatasetNormalizer(fields_lablled, normalizer, path_lengths=fields_lablled['path_lengths'])
+        self.indices_labelled        = self.make_indices(fields_lablled.path_lengths, horizon)
+        self.normalizer_unlabelled   = DatasetNormalizer(fields_unlabelled, normalizer, path_lengths=fields_unlabelled['path_lengths'])
+        self.indices_unlabelled      = self.make_indices(fields_unlabelled.path_lengths, horizon)
+
+        self.observation_dim         = fields_lablled.observations.shape[-1] = fields_unlabelled.observations.shape[-1]
+        self.action_dim              = fields_lablled.actions.shape[-1] = fields_unlabelled.actions.shape[-1]
+        self.fields_labelled         = fields_lablled
+        self.fields_unlabelled       = fields_unlabelled
+        self.n_episodes_labelled     = fields_lablled.n_episodes
+        self.n_episodes_unlabelled   = fields_unlabelled.n_episodes
+        self.path_lengths_labelled   = fields_lablled.path_lengths
+        self.path_lengths_unlabelled = fields_unlabelled.path_lengths
+        self.normalize()
+
+        print(fields_lablled)
+        print(fields_unlabelled)
+        print(self.fields_labelled['cost'])
+        print(self.fields_unlabelled['cost'])
+
+        # shapes = {key: val.shape for key, val in self.fields.items()}
+        # print(f'[ datasets/mujoco ] Dataset fields: {shapes}')
+
+    def normalize(self, keys=['observations', 'actions']):
+        '''
+            normalize fields that will be predicted by the diffusion model
+        '''
+        for key in keys:
+            #labelled
+            array_labelled                          = self.fields_labelled[key].reshape(self.n_episodes_labelled*self.max_path_length, -1)
+            normed_labelled                         = self.normalizer_labelled(array_labelled, key)
+            self.fields_labelled[f'normed_{key}']   = normed_labelled.reshape(self.n_episodes_labelled, self.max_path_length, -1)
+
+            #unlabelled
+            array_unlabelled                        = self.fields_unlabelled[key].reshape(self.n_episodes_unlabelled*self.max_path_length, -1)
+            normed_unlabelled                       = self.normalizer_unlabelled(array_unlabelled, key)
+            self.fields_unlabelled[f'normed_{key}'] = normed_unlabelled.reshape(self.n_episodes_unlabelled, self.max_path_length, -1)
+
+
+    def make_indices(self, path_lengths, horizon):
+        '''
+            makes indices for sampling from dataset;
+            each index maps to a datapoint
+        '''
+        indices = []
+        print(f'Path length is {path_lengths}')
+        for i, path_length in enumerate(path_lengths):
+            max_start = min(path_length - 1, self.max_path_length - horizon)
+            if not self.use_padding:
+                max_start = min(max_start, path_length - horizon)
+            for start in range(max_start):
+                end = start + horizon
+                indices.append((i, start, end))
+        indices = np.array(indices)
+        print(f'Indices shape is : {indices.shape}')
+        return indices
+
+    def get_conditions(self, observations):
+        '''
+            condition on current observation for planning
+        '''
+        return {0: observations[0]}
+
+    def __len__(self):
+        return max(len(self.indices_labelled),len(self.indices_unlabelled))
+
+    def __getitem__(self, idx, eps=1e-4):
+        path_ind, start, end    = self.indices_labelled[idx % len(self.indices_labelled)]
+        observations_labelled   = self.fields_labelled.normed_observations[path_ind, start:end]
+        actions_labelled        = self.fields_labelled.normed_actions[path_ind, start:end]
+        conditions_labelled     = self.get_conditions(observations_labelled)
+        trajectories_labelled   = np.concatenate([actions_labelled, observations_labelled], axis=-1)
+
+        path_ind, start, end    = self.indices_unlabelled[idx % len(self.indices_unlabelled)]  
+        observations_unlabelled = self.fields_unlabelled.normed_observations[path_ind, start:end]
+        actions_unlabelled      = self.fields_unlabelled.normed_actions[path_ind, start:end]
+        conditions_unlabelled   = self.get_conditions(observations_unlabelled)
+        trajectories_unlabelled = np.concatenate([actions_unlabelled, observations_unlabelled], axis=-1)
+
+
+        batch = CostBatch(trajectories_labelled, conditions_labelled, trajectories_unlabelled, conditions_unlabelled)
+        return batch
+
+
 
 
 class GoalDataset(SequenceDataset):
@@ -149,48 +259,3 @@ class ValueDataset(SequenceDataset):
         value = np.array([value], dtype=np.float32)
         value_batch = ValueBatch(*batch, value)
         return value_batch
-
-
-class CostDataset(SequenceDataset):
-    '''
-        adds a value field to the datapoints for training the value function
-    '''
-
-    def __init__(self, *args, discount=0.99, normed=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.discount = discount
-        self.discounts = self.discount ** np.arange(self.max_path_length)[:,None]
-        self.normed = False
-        if normed:
-            self.vmin, self.vmax = self._get_bounds()
-            self.normed = True
-
-    def _get_bounds(self):
-        print('[ datasets/sequence ] Getting value dataset bounds...', end=' ', flush=True)
-        vmin = np.inf
-        vmax = -np.inf
-        for i in range(len(self.indices)):
-            value = self.__getitem__(i).values.item()
-            vmin = min(value, vmin)
-            vmax = max(value, vmax)
-        print('✓')
-        return vmin, vmax
-
-    def normalize_value(self, value):
-        ## [0, 1]
-        normed = (value - self.vmin) / (self.vmax - self.vmin)
-        ## [-1, 1]
-        normed = normed * 2 - 1
-        return normed
-
-    def __getitem__(self, idx):
-        batch = super().__getitem__(idx)
-        path_ind, start, end = self.indices[idx]
-        costs = self.fields['costs'][path_ind, start:]
-        discounts = self.discounts[:len(costs)]
-        cumulative_cost = (discounts * costs).sum()
-        if self.normed:
-            cumulative_cost = self.normalize_value(cumulative_cost)
-        cumulative_cost = np.array([cumulative_cost], dtype=np.float32)
-        cost_batch = CostBatch(*batch, cumulative_cost)
-        return cost_batch
